@@ -2881,13 +2881,13 @@ def denorm_boxes_graph(boxes, shape):
 
 class MetricsCallback(Callback):
     def __init__(self, train_model, inference_model, dataset,
-                 calculate_map_at_every_X_epoch=5, dataset_limit=None,
+                 calculate_at_every_X_epoch=5, dataset_limit=None,
                  verbose=1):
         super().__init__()
         self.train_model = train_model
         self.inference_model = inference_model
         self.dataset = dataset
-        self.calculate_map_at_every_X_epoch = calculate_map_at_every_X_epoch
+        self.calculate_at_every_X_epoch = calculate_at_every_X_epoch
         self.dataset_limit = len(self.dataset.image_ids)
 
         # Creates a file writer for the log directory.
@@ -2904,7 +2904,7 @@ class MetricsCallback(Callback):
 
     def on_epoch_end(self, epoch, logs=None):
 
-        if epoch > 2 and (epoch + 1) % self.calculate_map_at_every_X_epoch == 0:
+        if epoch > 0 and epoch % self.calculate_at_every_X_epoch == 0:
             self._verbose_print("Calculating mAP...")
             self._load_weights_for_model()
 
@@ -2914,7 +2914,11 @@ class MetricsCallback(Callback):
             mAP = np.nanmean(mAPs)
             precision = np.mean(precisions)
             recall = np.mean(recalls)
-            f1_score = 2 * ((mAP * mars) / (mAP + mars))
+            
+            if mAP + mars == 0:
+                f1_score = 0
+            else:
+                f1_score = 2 * ((mAP * mars) / (mAP + mars))
 
             if logs is not None:
                 logs["val_mean_average_precision"] = mAP
@@ -2924,6 +2928,10 @@ class MetricsCallback(Callback):
                 logs["val_recall"] = recall
 
             self._verbose_print("mAP at epoch {0} is: {1}".format(epoch + 1, mAP))
+            self._verbose_print("mAR at epoch {0} is: {1}".format(epoch + 1, mars))
+            self._verbose_print("f1 score at epoch {0} is: {1}".format(epoch + 1, f1_score))
+            self._verbose_print("precision at epoch {0} is: {1}".format(epoch + 1, precision))
+            self._verbose_print("recall at epoch {0} is: {1}".format(epoch + 1, recall))
 
         super().on_epoch_end(epoch, logs)
 

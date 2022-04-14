@@ -205,10 +205,9 @@ def train(model, augment=False):
             iaa.GaussianBlur(sigma=(0.0, 5.0))
         ])
 
-    infConf = InferenceConfig()
-    model_inference = modellib.MaskRCNN(mode="inference", config=infConf, model_dir=MODEL_DIR)
+    model_inference = modellib.MaskRCNN(mode="inference", config=InferenceConfig(), model_dir=MODEL_DIR)
     mean_average_precision_callback = MetricsCallback(model, model_inference, dataset_val,
-                                                      calculate_map_at_every_X_epoch=1)
+                                                      calculate_at_every_X_epoch=1)
 
     # print("Train network heads")
     model.train(dataset_train, dataset_val,
