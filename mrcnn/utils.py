@@ -22,6 +22,7 @@ import urllib.request
 import shutil
 import warnings
 from distutils.version import LooseVersion
+from sklearn import metrics
 
 # URL from which to download the latest COCO trained weights
 COCO_MODEL_URL = "https://github.com/matterport/Mask_RCNN/releases/download/v2.0/mask_rcnn_coco.h5"
@@ -101,7 +102,7 @@ def compute_overlaps_masks(masks1, masks2):
     """Computes IoU overlaps between two sets of masks.
     masks1, masks2: [Height, Width, instances]
     """
-    
+
     # If either set of masks is empty return empty result
     if masks1.shape[-1] == 0 or masks2.shape[-1] == 0:
         return np.zeros((masks1.shape[-1], masks2.shape[-1]))
@@ -751,20 +752,39 @@ def compute_ap(gt_boxes, gt_class_ids, gt_masks,
     return mAP, precisions, recalls, overlaps
 
 
+def compute_ar(pred_boxes, gt_boxes, list_iou_thresholds=None):
+    """Compute AR over a range og IoU thresholds. Default range is 0.5-0.95."""
+
+    if list_iou_thresholds is None:
+        list_iou_thresholds = np.arange(0.5, 1.01, 0.1)
+
+    avg_rec = []
+    for iou_threshold in list_iou_thresholds:
+        try:
+            recall, _ = compute_recall(pred_boxes, gt_boxes, iou=iou_threshold)
+            avg_rec.append(recall)
+        except:
+            avg_rec.append(0.0)
+            pass
+
+    AUC = 2 * (metrics.auc(list_iou_thresholds, avg_rec))
+    return AUC
+
+
 def compute_ap_range(gt_box, gt_class_id, gt_mask,
                      pred_box, pred_class_id, pred_score, pred_mask,
                      iou_thresholds=None, verbose=1):
     """Compute AP over a range or IoU thresholds. Default range is 0.5-0.95."""
     # Default is 0.5 to 0.95 with increments of 0.05
     iou_thresholds = iou_thresholds or np.arange(0.5, 1.0, 0.05)
-    
+
     # Compute AP over range of IoU thresholds
     AP = []
     for iou_threshold in iou_thresholds:
-        ap, precisions, recalls, overlaps =\
+        ap, precisions, recalls, overlaps = \
             compute_ap(gt_box, gt_class_id, gt_mask,
-                        pred_box, pred_class_id, pred_score, pred_mask,
-                        iou_threshold=iou_threshold)
+                       pred_box, pred_class_id, pred_score, pred_mask,
+                       iou_threshold=iou_threshold)
         if verbose:
             print("AP @{:.2f}:\t {:.3f}".format(iou_threshold, ap))
         AP.append(ap)
