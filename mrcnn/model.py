@@ -2914,7 +2914,7 @@ class MetricsCallback(Callback):
             mAP = np.nanmean(mAPs)
             precision = np.mean(precisions)
             recall = np.mean(recalls)
-            
+
             if mAP + mars == 0:
                 f1_score = 0
             else:
@@ -2984,7 +2984,7 @@ class MetricsCallback(Callback):
 
             mars.append(avg_recall)
             mAPs.append(avg_prec)
-            precisions.append(np.mean(prec))
-            recalls.append(np.mean(rec))
+            precisions.append(np.nanmean(prec))
+            recalls.append(np.nanmean(rec))
 
         return np.array(mars), np.array(mAPs), np.array(precisions), np.array(recalls)
