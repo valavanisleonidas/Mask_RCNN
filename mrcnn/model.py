@@ -26,12 +26,10 @@ from keras.callbacks import Callback
 from tqdm import tqdm
 
 from mrcnn import utils
+from mrcnn.utils import compute_ar
 
 # Requires TensorFlow 1.3+ and Keras 2.0.8+.
 from distutils.version import LooseVersion
-
-from mrcnn.utils import compute_ar
-
 assert LooseVersion(tf.__version__) >= LooseVersion("1.3")
 assert LooseVersion(keras.__version__) >= LooseVersion('2.0.8')
 
@@ -1709,7 +1707,8 @@ class DataGenerator(keras.utils.Sequence):
 
     def data_generator(self,image_ids):
         b=0
-        while b < self.batch_size:
+        init_phase=True
+        while b < self.batch_size and b < image_ids.shape[0]:
             try:
                 # Get GT bounding boxes and masks for image.
                 image_id = image_ids[b]
@@ -1730,6 +1729,7 @@ class DataGenerator(keras.utils.Sequence):
                 # where we train on a subset of classes and the image doesn't
                 # have any of the classes we care about.
                 if not np.any(gt_class_ids > 0):
+                    b += 1
                     continue
 
                 # RPN Targets
@@ -1746,7 +1746,7 @@ class DataGenerator(keras.utils.Sequence):
                                 rpn_rois, gt_class_ids, gt_boxes, gt_masks, self.config)
 
                 # Init batch arrays
-                if b == 0:
+                if init_phase:
                     batch_image_meta = np.zeros(
                         (self.batch_size,) + image_meta.shape, dtype=image_meta.dtype)
                     batch_rpn_match = np.zeros(
@@ -1799,6 +1799,7 @@ class DataGenerator(keras.utils.Sequence):
                         batch_mrcnn_bbox[b] = mrcnn_bbox
                         batch_mrcnn_mask[b] = mrcnn_mask
                 b += 1
+                init_phase = False
 
                 # Batch full?
                 if b >= self.batch_size:
@@ -2376,10 +2377,11 @@ class MaskRCNN():
         # Work-around for Windows: Keras fails on Windows when using
         # multiprocessing workers. See discussion here:
         # https://github.com/matterport/Mask_RCNN/issues/13#issuecomment-353124009
+        # multiprocessing.freeze_support()
         if os.name is 'nt':
             workers = 0
         else:
-            workers = multiprocessing.cpu_count()
+            workers = multiprocessing.cpu_count() - 2
 
         self.keras_model.fit_generator(
             train_generator,
@@ -2390,8 +2392,8 @@ class MaskRCNN():
             validation_data=val_generator,
             validation_steps=self.config.VALIDATION_STEPS,
             max_queue_size=100,
-            workers=workers,
-            use_multiprocessing=True,
+            workers=2,
+            use_multiprocessing=False,
         )
         self.epoch = max(self.epoch, epochs)
 
