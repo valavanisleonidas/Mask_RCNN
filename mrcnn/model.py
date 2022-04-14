@@ -2922,10 +2922,10 @@ class MetricsCallback(Callback):
 
             if logs is not None:
                 logs["val_mean_average_precision"] = mAP
-                logs["val_F1"] = f1_score
                 logs["val_mean_average_recall"] = mars
                 logs["val_precision"] = precision
                 logs["val_recall"] = recall
+                logs["val_F1"] = f1_score
 
             self._verbose_print("mAP at epoch {0} is: {1}".format(epoch + 1, mAP))
             self._verbose_print("mAR at epoch {0} is: {1}".format(epoch + 1, mars))
