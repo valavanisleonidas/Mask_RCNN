@@ -2879,10 +2879,10 @@ def denorm_boxes_graph(boxes, shape):
 # CUSTOM CALLBACKS
 ###########################################################################
 
-class MetricsCallbck(Callback):
+class MetricsCallback(Callback):
     def __init__(self, train_model, inference_model, dataset,
                  calculate_map_at_every_X_epoch=5, dataset_limit=None,
-                 verbose=1, list_iou_thresholds=None):
+                 verbose=1):
         super().__init__()
         self.train_model = train_model
         self.inference_model = inference_model

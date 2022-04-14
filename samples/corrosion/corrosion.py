@@ -28,7 +28,6 @@ import skimage.draw
 
 # Root directory of the project
 
-from mrcnn.model import MetricsCallbck
 
 ROOT_DIR = os.path.abspath("../../")
 
@@ -36,6 +35,8 @@ ROOT_DIR = os.path.abspath("../../")
 sys.path.append(ROOT_DIR)  # To find local version of the library
 from mrcnn.config import Config
 from mrcnn import model as modellib, utils
+from mrcnn.model import MetricsCallback
+
 from imgaug import augmenters as iaa
 # if truncated image load not crash
 from PIL import ImageFile
@@ -206,8 +207,8 @@ def train(model, augment=False):
 
     infConf = InferenceConfig()
     model_inference = modellib.MaskRCNN(mode="inference", config=infConf, model_dir=MODEL_DIR)
-    mean_average_precision_callback = MetricsCallbck(model, model_inference, dataset_val,
-                                                     calculate_map_at_every_X_epoch=1)
+    mean_average_precision_callback = MetricsCallback(model, model_inference, dataset_val,
+                                                      calculate_map_at_every_X_epoch=1)
 
     # print("Train network heads")
     model.train(dataset_train, dataset_val,
