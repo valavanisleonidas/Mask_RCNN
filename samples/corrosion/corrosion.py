@@ -84,8 +84,8 @@ class MeanAveragePrecisionCallback(Callback):
 
             mAPs, precisions, recalls = self._calculate_mean_average_precision()
             mAP = np.nanmean(mAPs)
-            precision = np.nanmean(precisions)
-            recall = np.nanmean(recalls)
+            precision = np.mean(precisions)
+            recall = np.mean(recalls)
 
             if logs is not None:
                 logs["val_mean_average_precision"] = mAP
@@ -126,8 +126,8 @@ class MeanAveragePrecisionCallback(Callback):
             AP, prec, rec, _ = utils.compute_ap(gt_bbox, gt_class_id, gt_mask, r["rois"],
                                                 r["class_ids"], r["scores"], r['masks'])
             mAPs.append(AP)
-            precisions.append(prec)
-            recalls.append(rec)
+            precisions.append(np.mean(prec))
+            recalls.append(np.mean(rec))
 
         return np.array(mAPs), np.array(precisions), np.array(recalls)
 
