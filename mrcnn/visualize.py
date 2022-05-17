@@ -172,13 +172,14 @@ def display_differences(image,
                         pred_box, pred_class_id, pred_score, pred_mask,
                         class_names, title="", ax=None,
                         show_mask=True, show_box=True,
-                        iou_threshold=0.5, score_threshold=0.5):
+                        iou_threshold=0.7, score_threshold=0.5):
     """Display ground truth and prediction instances on the same image."""
     # Match predictions to ground truth
     gt_match, pred_match, overlaps = utils.compute_matches(
         gt_box, gt_class_id, gt_mask,
         pred_box, pred_class_id, pred_score, pred_mask,
         iou_threshold=iou_threshold, score_threshold=score_threshold)
+
     # Ground truth = green. Predictions = red
     colors = [(0, 1, 0, .8)] * len(gt_match)\
            + [(1, 0, 0, 1)] * len(pred_match)
@@ -204,6 +205,68 @@ def display_differences(image,
         colors=colors, captions=captions,
         title=title)
 
+
+def display_differences_filtered(image,
+                        gt_box, gt_class_id, gt_mask,
+                        pred_box, pred_class_id, pred_score, pred_mask,
+                        class_names, title="", ax=None,
+                        show_mask=True, show_box=True,
+                        iou_threshold=0.7, score_threshold=0.5):
+    """Display only ground truth and prediction instances on the same image that has matches."""
+    # Match predictions to ground truth
+    gt_match, pred_match, overlaps = utils.compute_matches(
+        gt_box, gt_class_id, gt_mask,
+        pred_box, pred_class_id, pred_score, pred_mask,
+        iou_threshold=iou_threshold, score_threshold=score_threshold)
+
+    if len(gt_match) == 0 or len(pred_match) == 0:
+        print("empty matches. Continue")
+        return False
+
+    if all(gt_match == -1) or all(pred_match == -1):
+        print("image has no matches. continue")
+        return False
+
+    len_matches = len([i[0] for i in np.argwhere(gt_match != -1).tolist()])
+
+    gt_ind_remove = [i[0] for i in np.argwhere(gt_match == -1).tolist()]
+    gt_box = np.delete(gt_box, gt_ind_remove, axis=0)
+    gt_mask = np.delete(gt_mask, gt_ind_remove, axis=2)
+    gt_class_id = np.delete(gt_class_id, gt_ind_remove, axis=0)
+
+    pred_ind_remove = [i[0] for i in np.argwhere(pred_match == -1).tolist()]
+    pred_box = np.delete(pred_box, pred_ind_remove, axis=0)
+    pred_mask = np.delete(pred_mask, pred_ind_remove, axis=2)
+    pred_score_filtered = np.delete(pred_score, pred_ind_remove, axis=0)
+    pred_class_id = np.delete(pred_class_id, pred_ind_remove, axis=0)
+
+    # Ground truth = green. Predictions = red
+    colors = [(0, 1, 0, .8)] * len_matches \
+             + [(1, 0, 0, 1)] * len_matches
+    # Concatenate GT and predictions
+    class_ids = np.concatenate([gt_class_id, pred_class_id])
+    scores = np.concatenate([np.zeros([len_matches]), pred_score_filtered])
+    boxes = np.concatenate([gt_box, pred_box])
+    masks = np.concatenate([gt_mask, pred_mask], axis=-1)
+    # Captions per instance show score/IoU
+    captions = ["" for m in gt_box] + ["{:.2f} / {:.2f}".format(
+        pred_score[i],
+        (overlaps[i, int(pred_match[i])]
+         if pred_match[i] > -1 else overlaps[i].max()))
+        for i in range(len(pred_match)) if overlaps[i].max() > iou_threshold]
+
+    # Set title if not provided
+    title = title or "Ground Truth and Detections\n GT=green, pred=red, captions: score/IoU"
+    # Display
+    display_instances(
+        image,
+        boxes, masks, class_ids,
+        class_names, scores, ax=ax,
+        show_bbox=show_box, show_mask=show_mask,
+        colors=colors, captions=captions,
+        title=title)
+
+    return True
 
 def draw_rois(image, rois, refined_rois, mask, class_ids, class_names, limit=10):
     """
