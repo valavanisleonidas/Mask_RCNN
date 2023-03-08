@@ -20,6 +20,8 @@ Usage: import the module (see Jupyter notebooks for examples), or run from
 import matplotlib
 from PIL import ImageFile
 
+from mrcnn.visualize import calc_avg_iou
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # Agg backend runs without a display
@@ -245,6 +247,7 @@ def detect(model, dataset_dir, subset, weights_path):
     dataset.load_data(dataset_dir, subset)
     dataset.prepare()
     # Load over images
+    iou = []
     for image_id in tqdm(dataset.image_ids):
         # Load image and run detection
         # image = dataset.load_image(image_id)
@@ -254,6 +257,10 @@ def detect(model, dataset_dir, subset, weights_path):
         # Detect objects
         r = model.detect([image], verbose=0)[0]
 
+        image_iou = calc_avg_iou(gt_bbox, gt_class_id, gt_mask,
+                                 r['rois'], r['class_ids'], r['scores'], r['masks'], score_threshold=0.3)
+        if len(image_iou) > 0:
+            iou.append(np.mean(image_iou))
         # # Save image with masks
         # visualize.display_instances(
         #     image, r['rois'], r['masks'], r['class_ids'],
@@ -275,7 +282,9 @@ def detect(model, dataset_dir, subset, weights_path):
             plt.savefig("{}/{}.png".format(submit_dir, dataset.image_info[image_id]["path"].split("/")[-1]))
         except:
             pass
-        
+
+    print("final IOU is :", np.mean(iou))
+
 def get_ax(rows=1, cols=1, size=16):
     """Return a Matplotlib Axes array to be used in
     all visualizations in the notebook. Provide a
