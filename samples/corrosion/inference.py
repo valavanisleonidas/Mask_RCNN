@@ -76,12 +76,12 @@ class CorrosionConfig(Config):
     NUM_CLASSES = 1 + 1  # Background + corrosion
 
     # Number of training steps per epoch
-    STEPS_PER_EPOCH = 1217 // IMAGES_PER_GPU
-    VALIDATION_STEPS = 100 // IMAGES_PER_GPU
+    STEPS_PER_EPOCH = 504 // IMAGES_PER_GPU
+    VALIDATION_STEPS = 15 // IMAGES_PER_GPU
 
     # Don't exclude based on confidence. Since we have two classes
     # then 0.5 is the minimum anyway as it picks between corrosion and BG
-    DETECTION_MIN_CONFIDENCE = 0.6
+    DETECTION_MIN_CONFIDENCE = 0.7
 
     # Max number of final detections
     DETECTION_MAX_INSTANCES = 400
@@ -91,12 +91,13 @@ class CorrosionConfig(Config):
 
     # Image mean (RGB)
     # corrected for corrosion train images (1217 images)
-    MEAN_PIXEL = np.array([95.98, 91.02, 87.38])
+    # MEAN_PIXEL = np.array([95.98, 91.02, 87.38])
 
-    # DEBATABLE PARAMS BELOW
+    MEAN_PIXEL = np.array([[87.37053502, 85.6605657,  84.95820356]])
 
+    
     # smaller for avoid overfitting
-    # BACKBONE = "resnet50"
+    BACKBONE = "resnet50"
 
     # we have both small and large objects
     RPN_ANCHOR_SCALES = (16, 32, 64, 128, 256)  # anchor side in pixels
@@ -196,7 +197,9 @@ def calc_mean_dataset(dataset_dir, subset):
     submit_dir = "submit_{:%Y%m%dT%H%M%S}".format(datetime.datetime.now())
     submit_dir = os.path.join(RESULTS_DIR, submit_dir)
     os.makedirs(submit_dir)
-
+    
+    config = CorrosionConfig()
+    
     # Read dataset
     dataset = CorrosionDataset()
     dataset.load_data(dataset_dir, subset)
@@ -225,14 +228,17 @@ def calc_mean_dataset(dataset_dir, subset):
     print('mean of dataset is ', mean)
 
 
-def detect(model, dataset_dir, subset):
+def detect(model, dataset_dir, subset, weights_path):
     """Run detection on images in the given directory."""
     print("Running on {}".format(dataset_dir))
 
     # Create directory
     if not os.path.exists(RESULTS_DIR):
         os.makedirs(RESULTS_DIR)
-    submit_dir = "submit_{:%Y%m%dT%H%M%S}".format(datetime.datetime.now())
+        
+    post_fix = "_".join(weights_path.split("/")[-2:]).replace("corrosion","").replace("mask_rcnn__","").replace(".h5","")
+    submit_dir = "submit_{:%Y%m%dT%H%M%S}_".format(datetime.datetime.now())
+    submit_dir += post_fix
     submit_dir = os.path.join(RESULTS_DIR, submit_dir)
     os.makedirs(submit_dir)
 
@@ -243,26 +249,56 @@ def detect(model, dataset_dir, subset):
     # Load over images
     for image_id in tqdm(dataset.image_ids):
         # Load image and run detection
-        image = dataset.load_image(image_id)
+        # image = dataset.load_image(image_id)
+        image, image_meta, gt_class_id, gt_bbox, gt_mask = \
+            modellib.load_image_gt(dataset, config, image_id, use_mini_mask=False)
+
         # Detect objects
         r = model.detect([image], verbose=0)[0]
 
         # # Save image with masks
-        visualize.display_instances(
-            image, r['rois'], r['masks'], r['class_ids'],
-            dataset.class_names, r['scores'],
-            show_bbox=True, show_mask=True,
-            title="Predictions")
-        plt.savefig("{}/{}.png".format(submit_dir, dataset.image_info[image_id]["path"].split("/")[-1]))
+        # visualize.display_instances(
+        #     image, r['rois'], r['masks'], r['class_ids'],
+        #     dataset.class_names, r['scores'],
+        #     show_bbox=True, show_mask=True,
+        #     title="Predictions")
+        # plt.savefig("{}/{}.png".format(submit_dir, dataset.image_info[image_id]["path"].split("/")[-1]))
 
+        try:
+            resp = visualize.display_differences_filtered(image,
+                gt_bbox, gt_class_id, gt_mask,
+                r['rois'], r['class_ids'], r['scores'], r['masks'],
+                dataset.class_names, ax=get_ax(),
+                show_box=False, show_mask=False,
+                iou_threshold=0.7, score_threshold=0.7)
 
+            if resp == False:
+                continue
+            plt.savefig("{}/{}.png".format(submit_dir, dataset.image_info[image_id]["path"].split("/")[-1]))
+        except:
+            pass
+        
+def get_ax(rows=1, cols=1, size=16):
+    """Return a Matplotlib Axes array to be used in
+    all visualizations in the notebook. Provide a
+    central point to control graph sizes.
+
+    Adjust the size attribute to control how big to render images
+    """
+    fig, ax = plt.subplots(rows, cols, figsize=(size * cols, size * rows))
+    fig.tight_layout()
+    return ax
+    
+    
 class InferenceConfig(CorrosionConfig):
     # Set batch size to 1 since we'll be running inference on
     # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
     GPU_COUNT = 1
     IMAGES_PER_GPU = 1
-
-
+    DETECTION_MIN_CONFIDENCE = 0.7
+    RPN_NMS_THRESHOLD = 0.5
+    
+    
 if __name__ == '__main__':
     import argparse
 
@@ -286,18 +322,22 @@ if __name__ == '__main__':
 
     args.command = "evaluate"
     args.dataset = "corrosion"
-    args.weights = "mask_rcnn_corrosion_0015.h5"
-    args.subset = 'val'
-
-    print("Weights: ", args.weights)
+    # args.weights = "/home/ubuntu/leonidas/resnet101/mask_rcnn_corrosion_0030.h5"
+    args.subset = 'train'
+        
+    # print("Weights: ", args.weights)
     print("Dataset: ", args.dataset)
     print("Logs: ", args.logs)
+        
+    for i in [78]:
+        weights = f"/home/ubuntu/leonidas/Mask_RCNN/exp/corrosion_chevron_2_augmented/mask_rcnn_corrosion_00{i}.h5"
+        print(weights)
+        
+        config = InferenceConfig()
+        config.display()
 
-    config = InferenceConfig()
-    config.display()
+        # Create model
+        model = modellib.MaskRCNN(mode="inference", config=config, model_dir=args.logs)
+        model.load_weights(weights, by_name=True)
 
-    # Create model
-    model = modellib.MaskRCNN(mode="inference", config=config, model_dir=args.logs)
-    model.load_weights(args.weights, by_name=True)
-
-    detect(model, args.dataset, args.subset)
+        detect(model, args.dataset, args.subset, weights)

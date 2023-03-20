@@ -34,7 +34,7 @@ import os
 import sys
 from pathlib import Path
 import datetime
-
+import copy
 import numpy as np
 from xml.etree import ElementTree as ET
 import skimage.draw
@@ -261,13 +261,15 @@ def detect(model, dataset_dir, subset, weights_path):
                                  r['rois'], r['class_ids'], r['scores'], r['masks'], score_threshold=0.3)
         if len(image_iou) > 0:
             iou.append(np.mean(image_iou))
+        
+        image_1 = copy.copy(image)
         # # Save image with masks
-        # visualize.display_instances(
-        #     image, r['rois'], r['masks'], r['class_ids'],
-        #     dataset.class_names, r['scores'],
-        #     show_bbox=True, show_mask=True,
-        #     title="Predictions")
-        # plt.savefig("{}/{}.png".format(submit_dir, dataset.image_info[image_id]["path"].split("/")[-1]))
+        visualize.display_instances(
+            image_1, r['rois'], r['masks'], r['class_ids'],
+            dataset.class_names, r['scores'],
+            show_bbox=True, show_mask=True,
+            title="Predictions")
+        plt.savefig("{}/{}_predictions.png".format(submit_dir, dataset.image_info[image_id]["path"].split("/")[-1]))
 
         try:
             resp = visualize.display_differences_filtered(image,
@@ -330,7 +332,7 @@ if __name__ == '__main__':
     args.command = "evaluate"
     args.dataset = "tanks"
     # args.weights = "/home/ubuntu/leonidas/resnet101/mask_rcnn_corrosion_0030.h5"
-    args.subset = 'val'
+    args.subset = 'validation'
         
     # print("Weights: ", args.weights)
     print("Dataset: ", args.dataset)
@@ -338,8 +340,8 @@ if __name__ == '__main__':
     
     
     # calc_mean_dataset(args.dataset, args.subset)
-    for i in [2]:
-        weights = f"/home/ubuntu/leonidas/Mask_RCNN/logs/tanks20230303T1649/mask_rcnn_tanks_000{i}.h5"
+    for i in [21,72]:
+        weights = f"/home/ubuntu/leonidas/Mask_RCNN/experiments/tanks20230303T1705/mask_rcnn_tanks_00{i}.h5"
         print(weights)
         
         config = InferenceConfig()

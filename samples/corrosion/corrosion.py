@@ -69,12 +69,12 @@ class CorrosionConfig(Config):
     NUM_CLASSES = 1 + 1  # Background + corrosion
 
     # Number of training steps per epoch
-    STEPS_PER_EPOCH = 1217 // IMAGES_PER_GPU
-    VALIDATION_STEPS = 100 // IMAGES_PER_GPU
+    STEPS_PER_EPOCH = 504 // IMAGES_PER_GPU
+    VALIDATION_STEPS = 15 // IMAGES_PER_GPU
 
     # Don't exclude based on confidence. Since we have two classes
     # then 0.5 is the minimum anyway as it picks between corrosion and BG
-    DETECTION_MIN_CONFIDENCE = 0.7
+    DETECTION_MIN_CONFIDENCE = 0
 
     # Max number of final detections
     DETECTION_MAX_INSTANCES = 400
@@ -84,7 +84,10 @@ class CorrosionConfig(Config):
 
     # Image mean (RGB)
     # corrected for corrosion train images (1217 images)
-    MEAN_PIXEL = np.array([95.98, 91.02, 87.38])
+    # MEAN_PIXEL = np.array([95.98, 91.02, 87.38])
+    
+    # chevron dataset   
+    MEAN_PIXEL = np.array([[87.37053502, 85.6605657,  84.95820356]])
 
     # smaller for avoid overfitting
     BACKBONE = "resnet50"
@@ -98,7 +101,8 @@ class InferenceConfig(CorrosionConfig):
     # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
     GPU_COUNT = 1
     IMAGES_PER_GPU = 1
-
+    DETECTION_MIN_CONFIDENCE = 0.5
+    RPN_NMS_THRESHOLD = 0.5
 
 ############################################################
 #  Dataset
@@ -131,6 +135,7 @@ class CorrosionDataset(utils.Dataset):
             # get all annotations
             annotations = im.findall(".//polyline")
             annotations.extend(im.findall(".//polygon"))
+            # annotations.extend(im.findall(".//ellipse"))
 
             annotations = [p for p in annotations if p.attrib['label'] == "corrosion"]
 
@@ -211,7 +216,7 @@ def train(model, augment=False):
     # print("Train network heads")
     model.train(dataset_train, dataset_val,
                 learning_rate=config.LEARNING_RATE,
-                epochs=30,
+                epochs=100,
                 augmentation=augmentation,
                 layers='heads',
                 custom_callbacks=[mean_average_precision_callback])
@@ -256,7 +261,7 @@ if __name__ == '__main__':
 
     args.command = "train"
     args.dataset = "corrosion"
-    args.weights = "coco"
+    args.weights = "mask_rcnn_corrosion_0078.h5"
     args.augment = False
 
     # Validate arguments
